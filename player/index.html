@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Hollow Knight - WebGL</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%230a0c12'/><path d='M16 5c4 0 7 3 7 7 0 3-2 5-3 7l-4 8-4-8c-1-2-3-4-3-7 0-4 3-7 7-7z' fill='%23e8eef7'/></svg>">
+<style>
+  :root{
+    --bg:#05070b; --ink:#e9eef7; --dim:#7f8ea6;
+    --accent:#a8c6ff; --accent2:#5f7fbe; --line:rgba(168,198,255,.16);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);overflow:hidden;
+    font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  #unity-canvas{position:fixed;inset:0;width:100vw;height:100vh;display:block;background:#000;outline:none}
+
+  .screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 0%,#131a26 0%,#070a10 55%,#030407 100%);z-index:20}
+  .screen.hide{opacity:0;pointer-events:none;transition:opacity .6s ease}
+  .card{width:min(92vw,560px);text-align:center;padding:0 24px}
+
+  .mark{width:64px;height:64px;margin:0 auto 26px;opacity:.92}
+  h1{font-size:clamp(28px,6vw,44px);letter-spacing:.34em;text-transform:uppercase;
+    font-weight:300;color:#f2f6fd;text-indent:.34em}
+  .sub{margin-top:12px;font-size:12.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--line) 20%,var(--line) 80%,transparent);
+    margin:26px 0}
+
+  .note{font-size:13.5px;line-height:1.7;color:#93a3bb}
+  .note b{color:#cfdcf2;font-weight:500}
+  .keys{margin-top:18px;font-size:12px;letter-spacing:.06em;color:#8494ab;line-height:1.9}
+  .keys kbd{display:inline-block;padding:2px 7px;margin:0 2px;border-radius:3px;font:inherit;font-size:11.5px;
+    color:#dbe6f7;background:rgba(168,198,255,.12);border:1px solid rgba(168,198,255,.22)}
+
+  .btn{margin-top:26px;padding:13px 40px;border-radius:2px;border:1px solid rgba(168,198,255,.45);
+    background:linear-gradient(180deg,rgba(168,198,255,.14),rgba(168,198,255,.05));
+    color:#f2f6fd;font:inherit;font-size:13px;letter-spacing:.22em;text-transform:uppercase;
+    cursor:pointer;transition:background .2s,border-color .2s,transform .12s}
+  .btn:hover{background:linear-gradient(180deg,rgba(168,198,255,.26),rgba(168,198,255,.1));border-color:rgba(168,198,255,.8)}
+  .btn:active{transform:translateY(1px)}
+  .btn[disabled]{opacity:.45;cursor:default}
+  .btn.ghost{margin-top:16px;padding:10px 26px;font-size:11.5px;background:none;border-color:rgba(255,255,255,.18);color:#a9b6cb}
+
+  .credit{margin-top:30px;font-size:11.5px;letter-spacing:.12em;color:#5e6c82}
+  .credit a{color:#8ea6c9;text-decoration:none;border-bottom:1px solid rgba(142,166,201,.3)}
+
+  .bar{position:relative;height:3px;background:rgba(168,198,255,.12);overflow:hidden;margin-top:26px}
+  .bar i{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,var(--accent2),var(--accent));
+    transition:right .25s ease}
+  .stats{display:flex;justify-content:space-between;margin-top:12px;font-size:11.5px;
+    letter-spacing:.1em;color:var(--dim);font-variant-numeric:tabular-nums}
+  .stage{margin-top:22px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8b9cb6;min-height:1em}
+
+  #error-box{display:none;margin-top:24px;padding:16px 18px;text-align:left;font-size:12.5px;line-height:1.65;
+    color:#ffd9d9;background:rgba(120,20,20,.18);border:1px solid rgba(220,90,90,.35);border-radius:3px;
+    max-height:32vh;overflow:auto;white-space:pre-wrap;word-break:break-word}
+  #error-box.show{display:block}
+
+  #hud{position:fixed;top:10px;left:10px;z-index:15;font:11px/1.4 ui-monospace,monospace;color:rgba(233,238,247,.42);
+    letter-spacing:.06em;pointer-events:none;opacity:0;transition:opacity .5s}
+  #hud.on{opacity:1}
+  #cut-fade{position:fixed;inset:0;background:#000;z-index:18;display:flex;align-items:center;justify-content:center;
+    opacity:0;pointer-events:none;transition:opacity .45s ease}
+  #cut-fade.on{opacity:1}
+  .cut-inner{display:flex;flex-direction:column;align-items:center;gap:16px;opacity:.9}
+  .cut-inner svg{width:44px;height:44px;opacity:.75}
+  .cut-inner span{font-size:11.5px;letter-spacing:.34em;text-transform:uppercase;color:#c3d2e8;text-indent:.34em;text-align:center}
+  .cut-inner em{font-style:normal;font-size:11px;letter-spacing:.13em;color:#66748c;text-align:center;max-width:23em;line-height:1.75;padding:0 18px}
+  .cut-inner i{display:block;width:86px;height:2px;background:rgba(168,198,255,.16);position:relative;overflow:hidden}
+  .cut-inner i::after{content:"";position:absolute;top:0;left:-40%;width:40%;height:100%;
+    background:linear-gradient(90deg,transparent,rgba(200,220,255,.85),transparent);animation:cutSlide 1.15s linear infinite}
+  @keyframes cutSlide{to{left:100%}}
+  @media (prefers-reduced-motion:reduce){ .cut-inner i::after{animation:none;left:0;width:100%;background:rgba(200,220,255,.4)} }
+  .hidden{display:none!important}
+  @media (max-width:520px){ .card{padding:0 18px} .note{font-size:12.5px} }
+</style>
+</head>
+<body>
+<canvas id="unity-canvas" width="960" height="600" tabindex="-1"></canvas>
+
+<!-- start screen -->
+<div class="screen" id="start">
+  <div class="card">
+    <svg class="mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M32 6c9 0 15 6.5 15 15 0 6.5-4 11-6.5 15.5L32 58l-8.5-21.5C21 32 17 27.5 17 21 17 12.5 23 6 32 6z"
+            stroke="#dce6f5" stroke-width="1.6" stroke-linejoin="round"/>
+      <circle cx="26.5" cy="22" r="2.6" fill="#0a0d13" stroke="#dce6f5" stroke-width="1.4"/>
+      <circle cx="37.5" cy="22" r="2.6" fill="#0a0d13" stroke="#dce6f5" stroke-width="1.4"/>
+    </svg>
+    <h1>Hollow Knight</h1>
+    <div class="sub">WebGL Port</div>
+    <div class="rule"></div>
+    <p class="note">
+      This build streams <b>~913&nbsp;MiB</b> of game data, so give it a few minutes on
+      first load. Best on desktop Chrome or Edge with <b>4&nbsp;GB+</b> RAM.
+      Mobile browsers will most likely run out of memory.
+    </p>
+    <div class="keys">
+      Move <kbd>&larr;</kbd><kbd>&rarr;</kbd>
+      &nbsp;&middot;&nbsp; Jump <kbd>Z</kbd>
+      &nbsp;&middot;&nbsp; Attack <kbd>X</kbd>
+      &nbsp;&middot;&nbsp; Dash <kbd>C</kbd>
+      <br>Every binding can be changed in <b>Options &rarr; Controls</b> and is remembered.</div>
+    <button class="btn" id="btn-play">Enter Hallownest</button>
+    <div class="credit">port by <b>everybodysim</b> &middot; <a href="https://truffed.lol" target="_blank" rel="noopener">truffed.lol</a></div>
+  </div>
+</div>
+
+<!-- loading screen -->
+<div class="screen hidden" id="loading">
+  <div class="card">
+    <h1 style="font-size:clamp(22px,4.4vw,32px)">Hollow Knight</h1>
+    <div class="stage" id="stage">Preparing</div>
+    <div class="bar"><i id="fill"></i></div>
+    <div class="stats">
+      <span id="mb">0.0 / 913.0 MiB</span>
+      <span id="pct">0%</span>
+    </div>
+    <div id="error-box"></div>
+    <button class="btn ghost hidden" id="btn-retry">Retry download</button>
+    <div class="credit">port by <b>everybodysim</b> &middot; truffed.lol</div>
+  </div>
+</div>
+
+<div id="cut-fade" aria-hidden="true">
+  <div class="cut-inner">
+    <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
+      <path d="M32 6c9 0 15 6.5 15 15 0 6.5-4 11-6.5 15.5L32 58l-8.5-21.5C21 32 17 27.5 17 21 17 12.5 23 6 32 6z"
+            stroke="#dce6f5" stroke-width="1.6" stroke-linejoin="round"/>
+      <circle cx="26.5" cy="22" r="2.6" fill="#05070b" stroke="#dce6f5" stroke-width="1.4"/>
+      <circle cx="37.5" cy="22" r="2.6" fill="#05070b" stroke="#dce6f5" stroke-width="1.4"/>
+    </svg>
+    <span id="cut-title">Cutscene unavailable</span>
+    <em id="cut-note">Skipping</em>
+    <i></i>
+  </div>
+</div>
+
+<div id="hud"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- asset locations -------------------------------------------------
+  // Game data lives on the `game-assets` branch so the Pages site stays small
+  // enough to actually build. Every host below serves CORS + byte ranges.
+  var ACCOUNT = (location.hostname.indexOf(".github.io") > 0) ? location.hostname.split(".")[0] : "everyone-sim67";
+  var REPO = "hollow-knight";
+  var CDN_MAIN = "https://cdn.jsdelivr.net/gh/" + ACCOUNT + "/" + REPO + "@main/";
+  var CDN_ASSETS = "https://cdn.jsdelivr.net/gh/" + ACCOUNT + "/" + REPO + "@game-assets/";
+  var RAW_ASSETS = "https://raw.githubusercontent.com/" + ACCOUNT + "/" + REPO + "/game-assets/";
+  var ASSET_BASES = [CDN_ASSETS, RAW_ASSETS];
+  var DATA_PARTS = 45;
+  var WASM_PARTS = 2;
+  var DATA_PART_SIZE = 20866662;
+  var DATA_LAST_SIZE = 8756670;
+  var WASM_PART1_SIZE = 20866662;
+  var WASM_PART2_SIZE = 9390603;
+  var TOTAL_BYTES = DATA_PART_SIZE * (DATA_PARTS - 1) + DATA_LAST_SIZE + WASM_PART1_SIZE + WASM_PART2_SIZE;
+  var CONCURRENCY = 6;
+
+  var el = function (id) { return document.getElementById(id); };
+  var canvas = el("unity-canvas");
+  var startScreen = el("start");
+  var loadingScreen = el("loading");
+  var stageEl = el("stage");
+  var fillEl = el("fill");
+  var mbEl = el("mb");
+  var pctEl = el("pct");
+  var errBox = el("error-box");
+  var retryBtn = el("btn-retry");
+  var hud = el("hud");
+
+  var loadedBytes = 0;
+  var abortCurrent = false;
+
+  function fmtMiB(bytes) { return (bytes / 1048576).toFixed(1); }
+
+  function paint() {
+    var ratio = Math.min(1, loadedBytes / TOTAL_BYTES);
+    fillEl.style.right = (100 - ratio * 100).toFixed(2) + "%";
+    mbEl.textContent = fmtMiB(loadedBytes) + " / " + fmtMiB(TOTAL_BYTES) + " MiB";
+    pctEl.textContent = Math.round(ratio * 100) + "%";
+  }
+
+  function setStage(text) { stageEl.textContent = text; }
+
+  function showError(message) {
+    loadingScreen.classList.remove("hidden");
+    startScreen.classList.add("hide");
+    errBox.textContent = message;
+    errBox.classList.add("show");
+    retryBtn.classList.remove("hidden");
+    setStage("Failed");
+  }
+
+  function clearError() {
+    errBox.classList.remove("show");
+    errBox.textContent = "";
+    retryBtn.classList.add("hidden");
+  }
+
+  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  // ---- gameplay keys --------------------------------------------------
+  // The engine's compiled defaults are Z/X/C/A/S/D on the arrows. In gameplay
+  // (cursor hidden) these physical keys are translated so the modern layout
+  // works out of the box; in menus (cursor shown) nothing is touched, so the
+  // rebind screen records and prints exactly the key you press.
+  var PLAY_KEYS = {
+    Space:   { key: "z", code: "KeyZ", keyCode: 90 },
+    KeyW:    { key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
+    KeyA:    { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
+    KeyS:    { key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
+    KeyD:    { key: "ArrowRight", code: "ArrowRight", keyCode: 39 },
+    KeyJ:    { key: "x", code: "KeyX", keyCode: 88 },
+    KeyK:    { key: "c", code: "KeyC", keyCode: 67 },
+    KeyL:    { key: "a", code: "KeyA", keyCode: 65 },
+    ShiftLeft:  { key: "s", code: "KeyS", keyCode: 83 },
+    ShiftRight: { key: "s", code: "KeyS", keyCode: 83 },
+    KeyE:    { key: "d", code: "KeyD", keyCode: 68 }
+  };
+
+  function inMenu() {
+    var c = document.getElementById("unity-canvas") || document.querySelector("canvas");
+    var cur = (c && c.style && c.style.cursor) || "";
+    return cur === "default" || cur === "pointer" || cur === "auto";
+  }
+
+  function translateKey(e) {
+    if (inMenu()) return;
+    var alias = PLAY_KEYS[e.code];
+    if (!alias) return;
+    var props = { key: alias.key, code: alias.code, keyCode: alias.keyCode, which: alias.keyCode, charCode: alias.keyCode };
+    Object.keys(props).forEach(function (name) {
+      try {
+        Object.defineProperty(e, name, { configurable: true, get: function () { return props[name]; } });
+      } catch (err) { /* frozen event */ }
+    });
+    e.preventDefault();
+  }
+
+  window.addEventListener("keydown", translateKey, true);
+  window.addEventListener("keyup", translateKey, true);
+
+  // ---- keyboard -------------------------------------------------------
+  // The engine owns its bindings. Rewriting Space into Z here made the
+  // controls menu print Z and made rebinding bind Z, so nothing is rewritten
+  // any more: the key you press is the key the game records and displays.
+
+
+  // Download one chunk of the split build, with per-attempt host rotation.
+  function fetchPart(path, expectedSize) {
+    var attempt = 0;
+
+    function tryOnce() {
+      var RAW_FIRST = ["Build/hktruffled.data.part3"];
+      var base = (RAW_FIRST.indexOf(path) >= 0)
+        ? RAW_ASSETS
+        : ASSET_BASES[attempt % ASSET_BASES.length];
+      return fetch(base + path, { cache: "force-cache" }).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status + " from " + base);
+        if (!res.body) throw new Error("streaming unsupported");
+        var reader = res.body.getReader();
+        var chunks = [];
+        var partBytes = 0;
+        return (function pump() {
+          return reader.read().then(function (r) {
+            if (r.done) {
+              if (expectedSize && partBytes !== expectedSize) {
+                throw new Error("short read (" + partBytes + "/" + expectedSize + " bytes)");
+              }
+              return new Blob(chunks, { type: "application/octet-stream" });
+            }
+            chunks.push(r.value);
+            partBytes += r.value.length;
+            loadedBytes += r.value.length;
+            paint();
+            return pump();
+          });
+        })();
+      }).catch(function (e) {
+        attempt += 1;
+        if (attempt >= 6) throw new Error(path + ": " + (e && e.message ? e.message : e));
+        return sleep(400 * attempt).then(tryOnce);
+      });
+    }
+    return tryOnce();
+  }
+
+  // Small task pool so we keep the pipe full without opening 47 connections.
+  function runPool(tasks, limit, onEach) {
+    var index = 0;
+    var results = new Array(tasks.length);
+    var done = 0;
+
+    function next() {
+      if (index >= tasks.length) return Promise.resolve();
+      var i = index++;
+      return tasks[i]().then(function (value) {
+        results[i] = value;
+        done += 1;
+        if (onEach) onEach(done, tasks.length);
+        return next();
+      });
+    }
+
+    var workers = [];
+    for (var w = 0; w < Math.min(limit, tasks.length); w++) workers.push(next());
+    return Promise.all(workers).then(function () { return results; });
+  }
+
+  // ---- cutscene plumbing ------------------------------------------------
+  // The game asks File.Exists() whether a cutscene exists before handing the
+  // URL to the VideoPlayer. There is no disk in a browser, so that call is
+  // ---- cutscene transition ---------------------------------------------
+  // The ported build cannot hand its cinematic videos to the WebGL player, so
+  // every cutscene stalls at "video load" and resumes a moment later. Rather
+  // than showing a frozen frame, the page watches the engine's own log and
+  // fades through a black loading card while that happens.
+  var LOADING_ON = [/Waiting for CinematicVideoPlayer/i, /Skipped cinematic/i, /Setting skip mode:\s*SKIP/i];
+  var LOADING_OFF = [/Cinematics are finished/i, /Skipping cinematic/i, /Loaded cinematic/i];
+  var loadingWatch = { visible: false, shownAt: 0, hideTimer: 0, failsafe: 0, hold: 1300 };
+  var NOTICE_KEY = "hk-cutscene-notice";
+  var firstNotice = true;
+  try { firstNotice = !localStorage.getItem(NOTICE_KEY); } catch (e) { firstNotice = true; }
+
+  function watchText(args) {
+    var text = "";
+    for (var i = 0; i < args.length; i++) {
+      var a = args[i];
+      if (typeof a === "string") text += a + " ";
+      else if (a && typeof a.message === "string") text += a.message + " ";
+    }
+    return text;
+  }
+
+  function loadingShow() {
+    if (loadingWatch.visible) return;
+    loadingWatch.visible = true;
+    loadingWatch.shownAt = Date.now();
+    var card = document.getElementById("cut-fade");
+    var title = document.getElementById("cut-title");
+    var note = document.getElementById("cut-note");
+    if (firstNotice) {
+      loadingWatch.hold = 3400;
+      if (title) title.textContent = "Cutscenes can't load here";
+      if (note) note.textContent = "This build can't play its cinematic videos in a browser, so they are being skipped. Everything else plays normally.";
+    } else {
+      loadingWatch.hold = 1300;
+      if (title) title.textContent = "Cutscene skipped";
+      if (note) note.textContent = "";
+    }
+    if (firstNotice) {
+      firstNotice = false;
+      try { localStorage.setItem(NOTICE_KEY, "1"); } catch (e) { /* private mode */ }
+    }
+    startSkipSpam();
+    if (!card) return;
+    card.classList.add("on");
+    clearTimeout(loadingWatch.failsafe);
+    loadingWatch.failsafe = setTimeout(loadingHide, Math.max(6000, loadingWatch.hold + 3000));
+  }
+
+  function loadingHide() {
+    if (!loadingWatch.visible) return;
+    var waited = Date.now() - loadingWatch.shownAt;
+    var card = document.getElementById("cut-fade");
+    var go = function () {
+      stopSkipSpam();
+      loadingWatch.visible = false;
+      clearTimeout(loadingWatch.failsafe);
+      if (card) card.classList.remove("on");
+    };
+    // never flash: keep the card up for at least a beat
+    if (waited < loadingWatch.hold) setTimeout(go, loadingWatch.hold - waited);
+    else go();
+  }
+
+  var SKIP_KEYS = [27, 13, 32, 88, 67, 83, 90, 65, 70];
+  var skipTimer = 0;
+
+  function pressSkip() {
+    var canvas = document.getElementById("unity-canvas") || document.querySelector("canvas");
+    var target = canvas || window;
+    SKIP_KEYS.forEach(function (code) {
+      var key = { 27: "Escape", 13: "Enter", 32: " ", 88: "x", 67: "c", 83: "s", 90: "z", 65: "a", 70: "f" }[code];
+      ["keydown", "keyup"].forEach(function (type) {
+        try {
+          var ev = new KeyboardEvent(type, { key: key, code: "Key" + key.toUpperCase(), keyCode: code, which: code, bubbles: true, cancelable: true });
+          target.dispatchEvent(ev);
+          window.dispatchEvent(ev);
+        } catch (e) { /* ignore */ }
+      });
+    });
+  }
+
+  var skipUntil = 0;
+
+  function startSkipSpam() {
+    skipUntil = Date.now() + 25000;
+    if (skipTimer) return;
+    pressSkip();
+    skipTimer = setInterval(function () {
+      if (Date.now() > skipUntil) { stopSkipSpam(); return; }
+      pressSkip();
+    }, 180);
+  }
+
+  function stopSkipSpam() {
+    if (!skipTimer) return;
+    clearInterval(skipTimer);
+    skipTimer = 0;
+  }
+
+  function installCutsceneWatch() {
+    ["log", "warn", "error", "info"].forEach(function (level) {
+      var original = console[level];
+      if (!original || original.__cutsceneWrapped) return;
+      var wrapped = function () {
+        try {
+          var text = watchText(arguments);
+          if (text) {
+            if (LOADING_OFF.some(function (re) { return re.test(text); })) loadingHide();
+            else if (LOADING_ON.some(function (re) { return re.test(text); })) loadingShow();
+          }
+        } catch (err) { /* never let logging break the engine */ }
+        return original.apply(console, arguments);
+      };
+      wrapped.__cutsceneWrapped = true;
+      console[level] = wrapped;
+    });
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error("could not load " + src)); };
+      document.body.appendChild(s);
+    });
+  }
+
+  function boot() {
+    abortCurrent = false;
+    loadedBytes = 0;
+    paint();
+    clearError();
+    startScreen.classList.add("hide");
+    loadingScreen.classList.remove("hidden");
+    setStage("Downloading game data");
+
+    var dataTasks = [];
+    var i;
+    for (i = 1; i <= DATA_PARTS; i++) {
+      (function (n) {
+        var size = n === DATA_PARTS ? DATA_LAST_SIZE : DATA_PART_SIZE;
+        dataTasks.push(function () { return fetchPart("Build/hktruffled.data.part" + n, size); });
+      })(i);
+    }
+    var wasmTasks = [];
+    for (i = 1; i <= WASM_PARTS; i++) {
+      (function (n) {
+        var size = n === 1 ? WASM_PART1_SIZE : WASM_PART2_SIZE;
+        wasmTasks.push(function () { return fetchPart("Build/hktruffled.wasm.part" + n, size); });
+      })(i);
+    }
+
+    var dataBlobs = null;
+    var wasmBlobs = null;
+
+    return runPool(dataTasks, CONCURRENCY, null).then(function (blobs) {
+      dataBlobs = blobs;
+      setStage("Downloading engine");
+      return runPool(wasmTasks, 2, null);
+    }).then(function (blobs) {
+      wasmBlobs = blobs;
+      if (abortCurrent) throw new Error("cancelled");
+      setStage("Assembling build");
+      var dataBlob = new Blob(dataBlobs, { type: "application/octet-stream" });
+      var wasmBlob = new Blob(wasmBlobs, { type: "application/wasm" });
+      dataBlobs = null;
+      wasmBlobs = null;
+      var dataUrl = URL.createObjectURL(dataBlob);
+      var codeUrl = URL.createObjectURL(wasmBlob);
+      setStage("Starting engine");
+      return loadScript(CDN_MAIN + "Build/hktruffled.loader.js").then(function () {
+        installCutsceneWatch();
+        if (typeof createUnityInstance !== "function") throw new Error("Unity loader did not initialise");
+        setStage("Compiling engine");
+        return createUnityInstance(canvas, {
+          dataUrl: dataUrl,
+          frameworkUrl: CDN_MAIN + "Build/hktruffled.framework.js",
+          codeUrl: codeUrl,
+          streamingAssetsUrl: CDN_MAIN + "StreamingAssets",
+          companyName: "Team Cherry",
+          productName: "Hollow Knight",
+          productVersion: "1.0",
+          showBanner: function (msg, type) {
+            if (type === "error") showError(String(msg));
+            else console.warn(msg);
+          },
+          onProgress: function (progress) {
+            if (progress > 0 && progress < 1) {
+              setStage("Initialising " + Math.round(progress * 100) + "%");
+            }
+          }
+        });
+      });
+    }).then(function () {
+      loadingScreen.classList.add("hide");
+      setTimeout(function () { loadingScreen.classList.add("hidden"); }, 700);
+      hud.classList.add("on");
+      canvas.focus();
+      startFps();
+    }).catch(function (err) {
+      if (abortCurrent) return;
+      console.error(err);
+      showError((err && err.message ? err.message : String(err)) +
+        "\n\nThis is usually a network hiccup on a ~913 MiB download. Retry to resume from the start.");
+    });
+  }
+
+  // ---- fps readout -----------------------------------------------------
+  var fpsTimer = null;
+  function startFps() {
+    var frames = 0;
+    var last = performance.now();
+    if (fpsTimer) return;
+    (function tick() {
+      frames++;
+      var now = performance.now();
+      if (now - last >= 500) {
+        hud.textContent = Math.round((frames * 1000) / (now - last)) + " FPS";
+        frames = 0;
+        last = now;
+      }
+      fpsTimer = requestAnimationFrame(tick);
+    })();
+  }
+
+  // ---- entry points ----------------------------------------------------
+  el("btn-play").addEventListener("click", function () {
+    boot();
+  });
+  retryBtn.addEventListener("click", function () {
+    boot();
+  });
+
+  if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+    var note = document.createElement("p");
+    note.className = "note";
+    note.style.marginTop = "18px";
+    note.style.color = "#e0b46a";
+    note.textContent = "Heads up: mobile browsers usually run out of memory with a build this size.";
+    document.querySelector("#start .note").after(note);
+  }
+})();
+</script>
+</body>
+</html>
